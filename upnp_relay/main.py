@@ -64,7 +64,7 @@ def listen_for_ssdp_responses(client_ip, client_port):
 
 def forward_request_to_services(request_packet):
     """
-    Handles incoming SSDP M-SEARCH requests and relays them to the SSDP multicast address.
+    Handles incoming requests and relays them to the services network.
     """
     if not request_packet.haslayer(Raw):
         return
