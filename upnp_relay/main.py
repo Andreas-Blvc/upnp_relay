@@ -1,3 +1,5 @@
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 import re
 from threading import Thread, Lock
 from scapy.all import sniff, UDP, IP, Raw
@@ -21,6 +23,7 @@ service_interface_ip = get_ip_address(services_network_search_interface)
 # Dictionary to keep track of listening threads for each (client_ip, client_port)
 active_listeners = {}
 listeners_lock = Lock()  # Lock to synchronize access to the active_listeners dictionary
+PRINT_PADDING_LENGTH=32
 
 
 def forward_response_to_client(response_packet, client_ip):
@@ -28,11 +31,11 @@ def forward_response_to_client(response_packet, client_ip):
     Forwards the received SSDP response to the requesting client by spoofing the source IP and port.
     """
     # Colorful print statement before sending the UDP packet
-    print(f"\n{COLOR_GREEN}Forwarding response to client:{COLOR_RESET}", end=' ')
-    print(f"{COLOR_CYAN}  To: {client_ip}:{response_packet[UDP].dport}{COLOR_RESET}", end=' ')
-    print(f"{clients_network_interface}<------{services_network_response_interface}", end=' ')
-    print(f"{COLOR_YELLOW}  From (spoofed IP): {response_packet[IP].src}:{response_packet[UDP].sport}{COLOR_RESET}")
-    
+    print("Forwarding response to client:".ljust(PRINT_PADDING_LENGTH, ' '), end=' ')
+    print(f"{COLOR_CYAN}{client_ip}{COLOR_RESET}:{COLOR_MAGENTA}{response_packet[UDP].dport}{COLOR_RESET} ({COLOR_BLUE}{clients_network_interface}{COLOR_RESET})", end=' ')
+    print("<------", end=' ')
+    print(f"{COLOR_CYAN}{response_packet[IP].src}{COLOR_RESET}:{COLOR_MAGENTA}{response_packet[UDP].sport}{COLOR_RESET} ({COLOR_BLUE}{services_network_response_interface}{COLOR_RESET})")
+
     send_udp_packet(
         interface=clients_network_interface,
         src_ip=response_packet[IP].src,  # Spoofed source IP
@@ -70,10 +73,10 @@ def forward_request_to_services(request_packet):
     
     if re.search(r"M-SEARCH", request_data):  # Detect M-SEARCH request
         # Colorful print statement before sending the UDP packet
-        print(f"\n{COLOR_GREEN}Relaying M-SEARCH request:{COLOR_RESET}", end=' ')
-        print(f"{COLOR_YELLOW}  From: {request_packet[IP].src}:{request_packet[UDP].sport}{COLOR_RESET}", end=' ')
-        print(f"{clients_network_interface}------>{services_network_search_interface}", end=' ')
-        print(f"{COLOR_CYAN}  To SSDP Multicast: {SSDP_MULTICAST_ADDR}:{SSDP_PORT}{COLOR_RESET}")
+        print("Relaying M-SEARCH request:".ljust(PRINT_PADDING_LENGTH, ' '), end=' ')
+        print(f"{COLOR_CYAN}{request_packet[IP].src}{COLOR_RESET}:{COLOR_MAGENTA}{request_packet[UDP].sport}{COLOR_RESET} ({COLOR_BLUE}{clients_network_interface}{COLOR_RESET})", end=' ')
+        print("------>", end=' ')
+        print(f"{COLOR_CYAN}{SSDP_MULTICAST_ADDR}{COLOR_RESET}:{COLOR_MAGENTA}{SSDP_PORT}{COLOR_RESET} ({COLOR_BLUE}{services_network_search_interface}{COLOR_RESET})")
         
         send_udp_packet(
             interface=services_network_search_interface,
@@ -89,7 +92,6 @@ def forward_request_to_services(request_packet):
         
         # Start a thread to listen for responses and forward them to the client
         with listeners_lock:
-            print(f"\n{COLOR_BLUE}Start listening for SSDP RESPONSES on {services_network_response_interface} for destination port {client_port}...{COLOR_RESET}")
             if (client_ip, client_port) not in active_listeners:
                 listener_thread = Thread(
                     target=listen_for_ssdp_responses, 
@@ -97,9 +99,6 @@ def forward_request_to_services(request_packet):
                 )
                 listener_thread.start()
                 active_listeners[(client_ip, client_port)] = listener_thread
-            else:
-                print(f"{COLOR_RED}Listener already active for {client_ip}:{client_port}, skipping...{COLOR_RESET}")
-
 
 def listen_for_ssdp_requests():
     """
