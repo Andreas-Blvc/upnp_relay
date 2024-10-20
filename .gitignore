@@ -1,0 +1,14 @@
+# Byte-compiled files
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# Ignore system files
+.DS_Store
+
+# Ignore test results
+*.log
+*.out
